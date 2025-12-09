@@ -1,0 +1,25 @@
+# Core Google ADK dependencies
+google-adk==1.9.0
+google-genai
+
+# A2A Protocol
+a2a-sdk
+
+# MCP Server (Flask)
+flask==3.0.0
+flask-cors==4.0.0
+
+# Web server
+uvicorn==0.24.0
+starlette==0.27.0
+
+# Database
+# sqlite3 is included in Python standard library
+
+# Async support
+asyncio
+nest-asyncio
+
+# Additional utilities
+python-dotenv
+requests

@@ -1,206 +1,199 @@
+"""
+Database Setup for Multi-Agent Customer Service System
+Creates SQLite database with customers and tickets tables
+Includes sample data for testing
+"""
+
 import sqlite3
-from datetime import datetime
-from pathlib import Path
+from datetime import datetime, timedelta
+import random
 
 
 class DatabaseSetup:
-    """SQLite database setup for customer support system."""
-
-    def __init__(self, db_path: str = "support.db"):
-        """Initialize database connection.
-
+    """Initialize and populate the customer service database"""
+    
+    def __init__(self, db_path="support.db"):
+        """
+        Initialize database connection
+        
         Args:
-            db_path: Path to the SQLite database file
+            db_path: Path to SQLite database file
         """
         self.db_path = db_path
         self.conn = None
-        self.cursor = None
-
+    
     def connect(self):
-        """Establish database connection."""
+        """Establish database connection"""
         self.conn = sqlite3.connect(self.db_path)
-        self.conn.execute("PRAGMA foreign_keys = ON")  # Enable foreign key constraints
-        self.cursor = self.conn.cursor()
-        print(f"Connected to database: {self.db_path}")
-
+        self.conn.row_factory = sqlite3.Row
+        return self.conn
+    
     def create_tables(self):
-        """Create customers and tickets tables."""
-
+        """Create customers and tickets tables"""
+        cursor = self.conn.cursor()
+        
+        # Drop existing tables
+        cursor.execute('DROP TABLE IF EXISTS tickets')
+        cursor.execute('DROP TABLE IF EXISTS customers')
+        
         # Create customers table
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS customers (
+        cursor.execute('''
+            CREATE TABLE customers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                email TEXT,
+                email TEXT NOT NULL,
                 phone TEXT,
-                status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'disabled')),
+                status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
-
+        ''')
+        
         # Create tickets table
-        self.cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tickets (
+        cursor.execute('''
+            CREATE TABLE tickets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 customer_id INTEGER NOT NULL,
                 issue TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'in_progress', 'resolved')),
-                priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
+                status TEXT DEFAULT 'open',
+                priority TEXT DEFAULT 'medium',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+                FOREIGN KEY (customer_id) REFERENCES customers(id)
             )
-        """)
-
-        # Create indexes for better query performance
-        self.cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email)
-        """)
-
-        self.cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_tickets_customer_id ON tickets(customer_id)
-        """)
-
-        self.cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)
-        """)
-
+        ''')
+        
         self.conn.commit()
-        print("Tables created successfully!")
-
-    def create_triggers(self):
-        """Create triggers for automatic timestamp updates."""
-
-        # Trigger to update updated_at on customers table
-        self.cursor.execute("""
-            CREATE TRIGGER IF NOT EXISTS update_customer_timestamp
-            AFTER UPDATE ON customers
-            FOR EACH ROW
-            BEGIN
-                UPDATE customers SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-            END
-        """)
-
-        self.conn.commit()
-        print("Triggers created successfully!")
-
-    def insert_sample_data(self):
-        """Insert sample data for testing."""
-
-        # Sample customers (15 customers with diverse data)
+        print("✅ Tables created successfully")
+    
+    def insert_sample_customers(self):
+        """Insert sample customer data"""
+        cursor = self.conn.cursor()
+        
         customers = [
-            ("John Doe", "john.doe@example.com", "+1-555-0101", "active"),
-            ("Jane Smith", "jane.smith@example.com", "+1-555-0102", "active"),
-            ("Bob Johnson", "bob.johnson@example.com", "+1-555-0103", "disabled"),
-            ("Alice Williams", "alice.w@techcorp.com", "+1-555-0104", "active"),
-            ("Charlie Brown", "charlie.brown@email.com", "+1-555-0105", "active"),
-            ("Diana Prince", "diana.prince@company.org", "+1-555-0106", "active"),
-            ("Edward Norton", "e.norton@business.net", "+1-555-0107", "active"),
-            ("Fiona Green", "fiona.green@startup.io", "+1-555-0108", "disabled"),
-            ("George Miller", "george.m@enterprise.com", "+1-555-0109", "active"),
-            ("Hannah Lee", "hannah.lee@global.com", "+1-555-0110", "active"),
-            ("Isaac Newton", "isaac.n@science.edu", "+1-555-0111", "active"),
-            ("Julia Roberts", "julia.r@movies.com", "+1-555-0112", "active"),
-            ("Kevin Chen", "kevin.chen@tech.io", "+1-555-0113", "disabled"),
-            ("Laura Martinez", "laura.m@solutions.com", "+1-555-0114", "active"),
-            ("Michael Scott", "michael.scott@paper.com", "+1-555-0115", "active"),
+            ('Alice Johnson', 'alice.johnson@email.com', '+1-555-0101', 'active'),
+            ('Bob Smith', 'bob.smith@email.com', '+1-555-0102', 'active'),
+            ('Carol White', 'carol.white@email.com', '+1-555-0103', 'active'),
+            ('David Brown', 'david.brown@email.com', '+1-555-0104', 'disabled'),
+            ('Charlie Brown', 'charlie.brown@email.com', '+1-555-0105', 'active'),
+            ('Eve Davis', 'eve.davis@email.com', '+1-555-0106', 'active'),
+            ('Frank Miller', 'frank.miller@email.com', '+1-555-0107', 'active'),
+            ('Grace Lee', 'grace.lee@email.com', '+1-555-0108', 'disabled'),
+            ('Henry Wilson', 'henry.wilson@email.com', '+1-555-0109', 'active'),
+            ('Iris Martinez', 'iris.martinez@email.com', '+1-555-0110', 'active'),
         ]
-
-        self.cursor.executemany("""
-            INSERT INTO customers (name, email, phone, status)
-            VALUES (?, ?, ?, ?)
-        """, customers)
-
-        # Sample tickets (25 tickets with various statuses and priorities)
-        tickets = [
-            # High priority tickets
-            (1, "Cannot login to account", "open", "high"),
-            (4, "Database connection timeout errors", "in_progress", "high"),
-            (7, "Payment processing failing for all transactions", "open", "high"),
-            (10, "Critical security vulnerability found", "in_progress", "high"),
-            (14, "Website completely down", "resolved", "high"),
-
-            # Medium priority tickets
-            (1, "Password reset not working", "in_progress", "medium"),
-            (2, "Profile image upload fails", "resolved", "medium"),
-            (5, "Email notifications not being received", "open", "medium"),
-            (6, "Dashboard loading very slowly", "in_progress", "medium"),
-            (9, "Export to CSV feature broken", "open", "medium"),
-            (11, "Mobile app crashes on startup", "resolved", "medium"),
-            (12, "Search functionality returning wrong results", "in_progress", "medium"),
-            (15, "API rate limiting too restrictive", "open", "medium"),
-
-            # Low priority tickets
-            (2, "Billing question about invoice", "resolved", "low"),
-            (2, "Feature request: dark mode", "open", "low"),
-            (3, "Documentation outdated for API v2", "open", "low"),
-            (5, "Typo in welcome email", "resolved", "low"),
-            (6, "Request for additional language support", "open", "low"),
-            (9, "Font size too small on settings page", "resolved", "low"),
-            (11, "Feature request: export to PDF", "open", "low"),
-            (12, "Color scheme suggestion for better contrast", "open", "low"),
-            (14, "Request access to beta features", "in_progress", "low"),
-            (15, "Question about pricing plans", "resolved", "low"),
-            (4, "Feature request: integration with Slack", "open", "low"),
-            (10, "Suggestion: add keyboard shortcuts", "open", "low"),
-        ]
-
-        self.cursor.executemany("""
-            INSERT INTO tickets (customer_id, issue, status, priority)
-            VALUES (?, ?, ?, ?)
-        """, tickets)
-
+        
+        cursor.executemany(
+            'INSERT INTO customers (name, email, phone, status) VALUES (?, ?, ?, ?)',
+            customers
+        )
+        
         self.conn.commit()
-        print("Sample data inserted successfully!")
-        print(f"  - {len(customers)} customers added")
-        print(f"  - {len(tickets)} tickets added")
-
+        print(f"✅ Inserted {len(customers)} sample customers")
+    
+    def insert_sample_tickets(self):
+        """Insert sample ticket data"""
+        cursor = self.conn.cursor()
+        
+        issues = [
+            "Cannot login to account",
+            "Billing discrepancy on last invoice",
+            "Feature request: dark mode",
+            "Password reset not working",
+            "Account upgrade inquiry",
+            "Charged twice for subscription",
+            "Cannot access premium features",
+            "Email notifications not received",
+            "Data export request",
+            "Account deletion request",
+            "Performance issues with dashboard",
+            "Integration with third-party service",
+            "Mobile app crashes on startup",
+            "Cannot change payment method",
+            "Refund request for unused service"
+        ]
+        
+        statuses = ['open', 'in_progress', 'resolved']
+        priorities = ['low', 'medium', 'high']
+        
+        tickets = []
+        for i in range(15):
+            customer_id = random.randint(1, 10)
+            issue = issues[i]
+            status = random.choice(statuses)
+            priority = random.choice(priorities)
+            tickets.append((customer_id, issue, status, priority))
+        
+        cursor.executemany(
+            'INSERT INTO tickets (customer_id, issue, status, priority) VALUES (?, ?, ?, ?)',
+            tickets
+        )
+        
+        self.conn.commit()
+        print(f"✅ Inserted {len(tickets)} sample tickets")
+    
+    def verify_data(self):
+        """Verify database contents"""
+        cursor = self.conn.cursor()
+        
+        # Count customers
+        cursor.execute('SELECT COUNT(*) as count FROM customers')
+        customer_count = cursor.fetchone()['count']
+        print(f"✅ Total customers: {customer_count}")
+        
+        # Count active customers
+        cursor.execute("SELECT COUNT(*) as count FROM customers WHERE status='active'")
+        active_count = cursor.fetchone()['count']
+        print(f"✅ Active customers: {active_count}")
+        
+        # Count tickets
+        cursor.execute('SELECT COUNT(*) as count FROM tickets')
+        ticket_count = cursor.fetchone()['count']
+        print(f"✅ Total tickets: {ticket_count}")
+        
+        # Count by status
+        cursor.execute('SELECT status, COUNT(*) as count FROM tickets GROUP BY status')
+        for row in cursor.fetchall():
+            print(f"   - {row['status']}: {row['count']}")
+    
     def close(self):
-        """Close database connection."""
+        """Close database connection"""
         if self.conn:
             self.conn.close()
-            print("Database connection closed.")
 
 
 def main():
-    """Main function to setup the database."""
-
-    # Initialize database
-    db = DatabaseSetup("support.db")
-
+    """Main setup function"""
+    print("="*70)
+    print("DATABASE SETUP - Multi-Agent Customer Service System")
+    print("="*70)
+    
+    db = DatabaseSetup('support.db')
+    
     try:
         # Connect to database
         db.connect()
-
-        # Create tables
+        print("\n1. Creating tables...")
         db.create_tables()
-
-        # Create triggers
-        db.create_triggers()
-
-        # Insert sample data
-        db.insert_sample_data()
-
-        # Add customer 12345 for test scenarios
-        db.conn = sqlite3.connect("support.db")
-        db.cursor = db.conn.cursor()
-        db.cursor.execute("""
-            INSERT OR IGNORE INTO customers (id, name, email, phone, status)
-            VALUES (12345, 'Premium Customer', 'premium@example.com', '+1-555-9999', 'active')
-        """)
-        db.cursor.execute("""
-            INSERT INTO tickets (customer_id, issue, status, priority)
-            VALUES (12345, 'Account upgrade request', 'open', 'medium')
-        """)
-        db.conn.commit()
-        print("Added customer 12345 (from assignment test scenarios)")
-
-        print("\n Database setup complete!")
-
-    except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        
+        print("\n2. Inserting sample customers...")
+        db.insert_sample_customers()
+        
+        print("\n3. Inserting sample tickets...")
+        db.insert_sample_tickets()
+        
+        print("\n4. Verifying data...")
+        db.verify_data()
+        
+        print("\n" + "="*70)
+        print("✅ DATABASE SETUP COMPLETE!")
+        print("="*70)
+        print(f"\nDatabase file: support.db")
+        print("Ready to use with MCP Server and agents")
+        
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"\n❌ Error during setup: {e}")
+        raise
+    
     finally:
         db.close()
 
